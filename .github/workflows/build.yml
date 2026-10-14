@@ -1,1 +1,40 @@
+name: Build Voidverse
 
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find project (zip ho ya seedhe files)
+        id: find
+        run: |
+          echo "Repo files:"; ls -la
+          for f in *.zip; do [ -e "$f" ] && unzip -q -o "$f"; done
+          B=$(find . -name build.gradle -not -path './.git/*' | head -n1)
+          if [ -z "$B" ]; then echo "ERROR: build.gradle nahi mila. Zip ya project files repo me upload karo."; exit 1; fi
+          echo "dir=$(dirname "$B")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: current
+
+      - name: Build
+        working-directory: ${{ steps.find.outputs.dir }}
+        run: gradle build --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voidverse-jar
+          path: |
+            ${{ steps.find.outputs.dir }}/build/libs/*.jar
+            !${{ steps.find.outputs.dir }}/build/libs/*-sources.jar
